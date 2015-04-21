@@ -1,0 +1,112 @@
+ !obj:pylearn2.train.Train {
+    dataset: &train !obj:ift6266h15.code.pylearn2.datasets.variable_image_dataset.DogsVsCats {
+        transformer: &transformer !obj:ift6266h15.code.pylearn2.datasets.variable_image_dataset.RandomCrop {
+            scaled_size: 256,
+            crop_size: 221,
+        },
+        start: 0,
+        stop: 20000,
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [221, 221],
+            num_channels: 3,
+        },
+        layers: [!obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'hidden_1',
+                     output_channels: 16,
+                     irange: 0.1,
+                     kernel_shape: [7, 7],
+                     pool_shape: [3, 3],
+                     pool_stride: [2, 2]
+                 },
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'hidden_2',
+                     output_channels: 8,
+                     irange: 0.01,
+                     kernel_shape: [7, 7],
+                     pool_shape: [3, 3],
+                     pool_stride: [2, 2]
+                 },
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'hidden_3',
+                     output_channels: 8,
+                     irange: 0.01,
+                     kernel_shape: [7, 7],
+                     pool_shape: [3, 3],
+                     pool_stride: [2, 2]
+                 },
+                 !obj:pylearn2.models.mlp.RectifiedLinear {
+                     layer_name: 'full_4',
+                     dim: 50,
+                     #sparse_init: 10
+                     irange: 0.2
+                 },
+                 !obj:pylearn2.models.mlp.RectifiedLinear {
+                     layer_name: 'full_5',
+                     dim: 50,
+                     #sparse_init: 10
+                     irange: 0.2
+                 },
+            !obj:pylearn2.models.mlp.Softmax {
+                layer_name: 'y',
+                n_classes: 2,
+                irange: 0.2,
+            },
+        ],
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: &batch_size 20,
+        train_iteration_mode: 'batchwise_shuffled_sequential',
+        batches_per_iter: 100,
+        monitoring_batch_size: *batch_size,
+        monitoring_batches: 10,
+        monitor_iteration_mode: 'batchwise_shuffled_sequential',
+        learning_rate: 0.001,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.RMSProp {
+            decay: 0.5,
+            #max_scaling: 
+        },
+        monitoring_dataset: {
+            'train' : *train,
+            'valid': !obj:ift6266h15.code.pylearn2.datasets.variable_image_dataset.DogsVsCats {
+                transformer: *transformer,
+                start: 20000,
+                stop: 22500,
+            },
+            'test': !obj:ift6266h15.code.pylearn2.datasets.variable_image_dataset.DogsVsCats {
+                transformer: *transformer,
+                start: 22500,
+                stop: 25000
+            },
+        },
+        cost: !obj:pylearn2.costs.cost.MethodCost {
+            method: 'cost_from_X',
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 2000
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+            channel_name: 'valid_y_misclass',
+            save_path: "./_best.pkl",
+        },
+        !obj:pylearn2.train_extensions.plots.plots.PlotManager {
+            plots: [
+                    !obj:pylearn2.train_extensions.plots.plots.Plots {
+                        save_path: "./train_crvs.png",
+                        channel_names: [
+                            'train_y_misclass',
+                            'valid_y_misclass',
+                            'test_y_misclass'
+                        ],
+                        share: 1
+                    },
+              ],
+              freq: 20,
+            },
+        ],
+    save_path: "./_save100.pkl",
+    save_freq: 100,
+}
